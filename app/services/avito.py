@@ -75,11 +75,18 @@ class AvitoApi:
         return self.__request('POST', url, headers=headers, data=data)
 
     def __request(self, method: str, url: str, data: dict|None = None, headers: dict|None = None) -> dict:
-        if self.__auth_headers is not None:
-            headers = {**headers, **self.__auth_headers}
-            
-        response = requests.request(method, url, headers=headers, data=data)
+        request_headers = dict()
+        request_headers = self.__merge_dicts(request_headers, headers)
+        request_headers = self.__merge_dicts(request_headers, self.__auth_headers)
+
+        response = requests.request(method, url, headers=request_headers, data=data)
         response_data = response.json()
         if response.status_code != 200 or response_data.get('error') is not None:
             raise Exception(f'Request to `{url}` failed with response: `{response_data}`')
         return response_data
+
+    def __merge_dicts(self, first: dict, second: dict|None):
+        if second is not None:
+            return {**first, **second}
+        return first
+
