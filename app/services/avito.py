@@ -1,5 +1,7 @@
 from __future__ import annotations
 import requests
+import datetime
+from time import sleep
 
 
 class AuthRequest:
@@ -17,15 +19,64 @@ class AuthRequest:
         }
 
 
+class AccountInfo:
+    def __init__(self, status: str, balance: str, account: dict, ads: dict, reviews: int, rating: int, ad_min_date: datetime.date) -> None:
+        self.status = status
+        self.balance = balance
+        self.account = account
+        self.ads = ads
+        self.reviews = reviews
+        self.rating = rating
+        self.ad_min_date = ad_min_date
+
+    def to_array(self) -> list:
+        return [
+            self.status,
+            self.balance,
+            self.ad_min_date,
+            self.ads[AvitoApi.STATUS_ACTIVE],
+            self.ads[AvitoApi.STATUS_REJECTED],
+            self.reviews,
+            self.rating,
+        ]
+
+
 class AvitoService:
     def __init__(self, auth_request: AuthRequest) -> None:
         self.__api = AvitoApi(auth_request)
 
-    def get_account_info(self) -> dict:
-        return {
-            # 'balance': self.__api.get_account_balance(),
-            'account': self.__api.get_account(),
-        }
+    def get_account_info(self) -> AccountInfo:
+        account = self.__api.get_account()
+        balance = self.__api.get_account_balance(account['id'])
+        ads_ids = self.__api.get_ads_ids(AvitoApi.STATUS_ACTIVE)
+        ads_stat = self.__get_ads_statistics(account['id'], ads_ids)
+        ads_count = {ad_status: self.__api.get_ads_count(ad_status) for ad_status in AvitoApi.ADS_STATUSES}
+        return AccountInfo(
+            'active',
+            balance['real'],
+            account,
+            ads_count,
+            self.__api.get_reviews().get('total'),
+            self.__api.get_ratings()['rating']['score'],
+            self.__get_min_ads_date(ads_stat)
+        )
+
+    def __get_min_ads_date(self, ads_stat: list[dict]) -> datetime.date:
+        min_date = None
+        for ad_stat in ads_stat:
+            for stat in ad_stat['stats']:
+                date = stat.get('date')
+                if date is not None and (min_date is None or min_date > date):
+                    min_date = date
+        return min_date
+
+    def __get_ads_statistics(self, user_id: str, ads_ids: list) -> list:
+        stat = []
+        date = datetime.date.today()
+        for chunk in chunks(ads_ids, 200):
+            stat += self.__api.get_stat(user_id, chunk, date, date)['result']['items']
+            sleep(2)
+        return stat
 
 
 class AvitoApi:
@@ -33,6 +84,11 @@ class AvitoApi:
     AUTH_API_HOST = API_HOST + '/token'
     CORE_API_HOST = API_HOST + '/core/v1'
     RATINGS_API_HOST = API_HOST + '/ratings/v1'
+    STAT_API_HOST = API_HOST + '/stats/v1'
+
+    STATUS_ACTIVE = 'active'
+    STATUS_REJECTED = 'rejected'
+    ADS_STATUSES = [STATUS_ACTIVE, STATUS_REJECTED]
 
     __auth_headers: dict|None = None
 
@@ -40,15 +96,18 @@ class AvitoApi:
         self.__auth_headers = self.__get_auth_headers(auth_request.get_request())
 
     def get_account(self) -> dict:
-        return self.__get(self.CORE_API_HOST + "accounts/self")
+        return self.__get(self.CORE_API_HOST + '/accounts/self')
 
     def get_account_balance(self, user_id: str) -> dict:
         return self.__get(self.CORE_API_HOST + f'/accounts/{user_id}/balance/')
 
-    def get_ads_count(self) -> int:
-        return len(self.get_ads())
+    def get_ads_count(self, status: str = 'active') -> int:
+        return len(self.get_ads(status))
 
-    def get_ads(self, status='active') -> list[dict]:
+    def get_ads_ids(self, status: str = 'active') -> list:
+        return list(map(lambda ad: ad['id'], self.get_ads(status)))
+
+    def get_ads(self, status: str = 'active') -> list[dict]:
         page = 1
         ads = []
         while True:
@@ -61,6 +120,16 @@ class AvitoApi:
             page += 1
 
         return ads
+
+    def get_stat(self, user_id: str, ads_ids: list, date_from: datetime.date, date_to: datetime.date) -> dict:
+        data = {
+            'dateFrom': f'{date_from}',
+            'dateTo': f'{date_to}',
+            'itemIds': ads_ids,
+            'periodGrouping': 'day'
+        }
+        headers = {'Content-type': 'application/json'}
+        return self.__post(self.STAT_API_HOST + f'/accounts/{user_id}/items', json=data, headers=headers)
 
     def get_reviews(self, offset: int = 0) -> dict:
         return self.__get(self.RATINGS_API_HOST + f'/reviews?offset={offset}&limit=50')
@@ -82,15 +151,15 @@ class AvitoApi:
     def __get(self, url: str, params: dict|None = None, headers: dict|None = None) -> dict:
         return self.__request('GET', url, params, headers)
 
-    def __post(self, url: str, data: dict|str|None = None, headers: dict | None = None) -> dict:
-        return self.__request('POST', url, headers=headers, data=data)
+    def __post(self, url: str, data: dict|str|None = None, json: dict|None = None, headers: dict | None = None) -> dict:
+        return self.__request('POST', url, headers=headers, data=data, json=json)
 
-    def __request(self, method: str, url: str, data: dict|None = None, headers: dict|None = None) -> dict:
+    def __request(self, method: str, url: str, data: dict|None = None, json: dict|None = None, headers: dict|None = None) -> dict:
         request_headers = dict()
         request_headers = self.__merge_dicts(request_headers, headers)
         request_headers = self.__merge_dicts(request_headers, self.__auth_headers)
 
-        response = requests.request(method, url, headers=request_headers, data=data)
+        response = requests.request(method, url, headers=request_headers, data=data, json=json)
         response_data = response.json()
         if response.status_code != 200 or response_data.get('error') is not None:
             raise Exception(f'Request to `{url}` failed with response: `{response_data}`')
@@ -101,3 +170,7 @@ class AvitoApi:
             return {**first, **second}
         return first
 
+
+def chunks(arr: list, chunk_size: int) -> list[list]:
+    for i in range(0, len(arr), chunk_size):
+        yield arr[i:i + chunk_size]

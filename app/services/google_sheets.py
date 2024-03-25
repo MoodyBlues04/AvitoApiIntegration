@@ -39,6 +39,9 @@ class GoogleSheetsApi:
     def set_value(self, addr: tuple|str, value) -> None:
         self.__worksheet.update_value(addr, value)
 
+    def set_values(self, addr_from: tuple|str, values: list[list]) -> None:
+        self.__worksheet.update_values(crange=addr_from, values=values)
+
     def set_row(self, row: int, row_data: list) -> None:
         self.__worksheet.update_row(row, row_data)
 

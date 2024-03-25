@@ -1,5 +1,5 @@
 from .google_sheets import GoogleSheetsApi
-from .avito import AuthRequest, AvitoService
+from .avito import AuthRequest, AvitoService, AvitoApi, AccountInfo
 
 
 class AvitoSheetProcessor:
@@ -15,27 +15,23 @@ class AvitoSheetProcessor:
     def execute(self):
         all_rows = self.__google_sheets_api.get_all_rows()
 
-        for row_idx, row in enumerate(all_rows):
+        for row_index, row in enumerate(all_rows):
             try:
-                if row_idx == 0 or len(row) > 0 and not row[0]:
+                if row_index == 0 or len(row) > 0 and not row[0]:
                     continue
                 if len(row) < self.ROW_LEN:
                     raise Exception('Incorrect args count')
 
                 profile_id, client_id, client_secret = row[1:4]
-
                 auth_request = AuthRequest(client_id.strip(), client_secret.strip())
                 try:
                     avito_service = AvitoService(auth_request)
                 except Exception:
-                    self.__google_sheets_api.set_value((row_idx + 1, self.STATUS_COLUMN), 'BLOCK')
+                    self.__set_status(row_index + 1, 'BLOCK')
                     continue
-                print(avito_service.get_account_info())
+                self.__set_account_info(row_index, avito_service.get_account_info())
                 break
 
-            #     1) acc data (balance, ads count, ads2 count, reviews count, rating, nearest ad,
-            #           profile url and other profile data
-            #     2) validate such response object and throw error on failed validation
             #     3) write to sheet
 
             #     4) статистика (переключаемся на отдельный лист)
@@ -45,8 +41,14 @@ class AvitoSheetProcessor:
             #     7) по списку отзывов автоответ (шаблоны дадут) + добавляем в конец строки статус "отвечено"
 
             except Exception as e:
-                self.__log_error(e, row_idx)
+                self.__log_error(e, row_index)
+
+    def __set_account_info(self, row_index: int, account_info: AccountInfo) -> None:
+        self.__google_sheets_api.set_values((row_index + 1, self.STATUS_COLUMN), [account_info.to_array()])
 
     def __log_error(self, e: Exception, row_index: int) -> None:
         raise e
         # self.__google_sheets_api.set_value((row_index + 1, self.ERR_COLUMN), str(e))
+
+    def __set_status(self, row_index: int, status: str) -> None:
+        self.__google_sheets_api.set_value((row_index + 1, self.STATUS_COLUMN), status)
