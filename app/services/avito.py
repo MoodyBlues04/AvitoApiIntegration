@@ -66,6 +66,7 @@ class AvitoService:
         ads_ids = self.__api.get_ads_ids(AvitoApi.STATUS_ACTIVE)
         ads_stat = self.__get_ads_statistics(account['id'], ads_ids)
         ads_count = {ad_status: self.__api.get_ads_count(ad_status) for ad_status in AvitoApi.ADS_STATUSES}
+
         return AccountInfo(
             'active',
             balance['real'],
@@ -85,6 +86,26 @@ class AvitoService:
         not_answered_reviews = filter(lambda el: not el.get('answer'), self.__api.get_all_reviews())
         return list(map(lambda el: el['id'], not_answered_reviews))
 
+    def get_ads_stat_by_regions(self):
+        account = self.__api.get_account()
+        account_id = account['id']
+        ads_ids = self.__api.get_ads_ids(AvitoApi.STATUS_ACTIVE)
+        ads_stat = self.__get_ads_statistics(account_id, ads_ids)
+
+        ads_stat_by_region = dict()
+        today = datetime.date.today()
+        for ad_stat in ads_stat:
+            ad_info = self.__api.get_ad(account_id, ad_stat['itemId'])
+            region = ad_info['url'].split('/')[3]
+            if ads_stat_by_region.get(region) is None:
+                ads_stat_by_region[region] = {'unique_views': 0, 'unique_contacts': 0, 'active_count': 0, 'date': today}
+            ads_stat_by_region[region]['unique_views'] += sum(stat.get('uniqViews', 0) for stat in ad_stat['stats'])
+            ads_stat_by_region[region]['unique_contacts'] += sum(stat.get('uniqContacts', 0) for stat in ad_stat['stats'])
+            ads_stat_by_region[region]['active_count'] += int(ad_info['status'] == AvitoApi.STATUS_ACTIVE)
+
+        return ads_stat_by_region
+
+
     def __get_min_ads_date(self, ads_stat: list[dict]) -> datetime.date:
         min_date = None
         for ad_stat in ads_stat:
@@ -96,9 +117,8 @@ class AvitoService:
 
     def __get_ads_statistics(self, user_id: str, ads_ids: list) -> list:
         stat = []
-        date = datetime.date.today()
         for chunk in chunks(ads_ids, 200):
-            stat += self.__api.get_stat(user_id, chunk, date, date)['result']['items']
+            stat += self.__api.get_today_ads_stat(user_id, chunk)['result']['items']
             sleep(2)
         return stat
 
@@ -125,6 +145,9 @@ class AvitoApi:
     def get_account_balance(self, user_id: str) -> dict:
         return self.__get(self.CORE_API_HOST + f'/accounts/{user_id}/balance/')
 
+    def get_ad(self, user_id: str, ad_id: int|str) -> dict:
+        return self.__get(self.CORE_API_HOST + f'/accounts/{user_id}/items/{ad_id}')
+
     def get_ads_count(self, status: str = 'active') -> int:
         return len(self.get_all_ads(status))
 
@@ -136,7 +159,7 @@ class AvitoApi:
         ads = []
         while True:
             response = self.get_ads(status, page)
-            if response.get('resources') is None:
+            if not response.get('resources'):
                 break
             ads += response['resources']
             page += 1
@@ -145,7 +168,11 @@ class AvitoApi:
     def get_ads(self, status: str, page: int = 0) -> dict:
         return self.__get(self.CORE_API_HOST + f'/items?per_page=100&page={page}&status={status}')
 
-    def get_stat(self, user_id: str, ads_ids: list, date_from: datetime.date, date_to: datetime.date) -> dict:
+    def get_today_ads_stat(self, user_id: str, ads_ids: list) -> dict:
+        today = datetime.date.today()
+        return self.get_ads_stat(user_id, ads_ids, today, today)
+
+    def get_ads_stat(self, user_id: str, ads_ids: list, date_from: datetime.date, date_to: datetime.date) -> dict:
         request = {
             'dateFrom': f'{date_from}',
             'dateTo': f'{date_to}',
