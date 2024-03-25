@@ -51,8 +51,14 @@ class AccountInfo:
 
 
 class AvitoService:
+    DEFAULT_MESSAGE_TEXT = 'Спасибо за Ваш отзыв!'
+
     def __init__(self, auth_request: AuthRequest) -> None:
         self.__api = AvitoApi(auth_request)
+
+    @property
+    def api(self) -> AvitoApi:
+        return self.__api
 
     def get_account_info(self) -> AccountInfo:
         account = self.__api.get_account()
@@ -69,6 +75,15 @@ class AvitoService:
             self.__api.get_ratings()['rating']['score'],
             self.__get_min_ads_date(ads_stat)
         )
+
+    def answer_on_reviews(self, message: str = DEFAULT_MESSAGE_TEXT) -> None:
+        reviews_to_answer = self.get_not_answered_reviews_ids()
+        for review_id in reviews_to_answer:
+            self.__api.answer_on_review(review_id, message)
+
+    def get_not_answered_reviews_ids(self) -> list:
+        not_answered_reviews = filter(lambda el: not el.get('answer'), self.__api.get_all_reviews())
+        return list(map(lambda el: el['id'], not_answered_reviews))
 
     def __get_min_ads_date(self, ads_stat: list[dict]) -> datetime.date:
         min_date = None
@@ -111,37 +126,55 @@ class AvitoApi:
         return self.__get(self.CORE_API_HOST + f'/accounts/{user_id}/balance/')
 
     def get_ads_count(self, status: str = 'active') -> int:
-        return len(self.get_ads(status))
+        return len(self.get_all_ads(status))
 
     def get_ads_ids(self, status: str = 'active') -> list:
-        return list(map(lambda ad: ad['id'], self.get_ads(status)))
+        return list(map(lambda ad: ad['id'], self.get_all_ads(status)))
 
-    def get_ads(self, status: str = 'active') -> list[dict]:
+    def get_all_ads(self, status: str = 'active') -> list[dict]:
         page = 1
         ads = []
         while True:
-            response = self.__get(self.CORE_API_HOST + f'/items?per_page=100&page={page}&status={status}')
-            items = response['resources']
-            if not items:
+            response = self.get_ads(status, page)
+            if response.get('resources') is None:
                 break
-
-            ads += items
+            ads += response['resources']
             page += 1
-
         return ads
 
+    def get_ads(self, status: str, page: int = 0) -> dict:
+        return self.__get(self.CORE_API_HOST + f'/items?per_page=100&page={page}&status={status}')
+
     def get_stat(self, user_id: str, ads_ids: list, date_from: datetime.date, date_to: datetime.date) -> dict:
-        data = {
+        request = {
             'dateFrom': f'{date_from}',
             'dateTo': f'{date_to}',
             'itemIds': ads_ids,
             'periodGrouping': 'day'
         }
         headers = {'Content-type': 'application/json'}
-        return self.__post(self.STAT_API_HOST + f'/accounts/{user_id}/items', json=data, headers=headers)
+        return self.__post(self.STAT_API_HOST + f'/accounts/{user_id}/items', json=request, headers=headers)
+
+    def get_all_reviews(self) -> list:
+        reviews = []
+        offset = 0
+        while True:
+            new_reviews = self.get_reviews(offset)
+            if not new_reviews.get('reviews'):
+                break
+            reviews += new_reviews['reviews']
+            offset += 50
+        return reviews
 
     def get_reviews(self, offset: int = 0) -> dict:
         return self.__get(self.RATINGS_API_HOST + f'/reviews?offset={offset}&limit=50')
+
+    def answer_on_review(self, review_id: int|str, message: str) -> None:
+        request = {
+            'message': message,
+            'reviewId': review_id
+        }
+        self.__post(self.RATINGS_API_HOST + '/answers', json=request)
 
     def get_ratings(self) -> dict:
         return self.__get(self.RATINGS_API_HOST + f'/info')

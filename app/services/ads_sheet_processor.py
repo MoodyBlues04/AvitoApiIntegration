@@ -6,7 +6,7 @@ class AvitoSheetProcessor:
     ROW_LEN = 4
     ERR_COLUMN = 10
     STATUS_COLUMN = 5
-    URL_COLUMN = 18
+    URL_COLUMN = 19
 
     def __init__(self, sheet_id: str, credentials_worksheet: str, ads_worksheet: str) -> None:
         self.__google_sheets_api = GoogleSheetsApi(sheet_id, credentials_worksheet)
@@ -34,11 +34,12 @@ class AvitoSheetProcessor:
 
                 self.__set_account_info(row_index, avito_service.get_account_info())
 
-                self.__google_sheets_api.set_worksheet(f'{profile_id} | Стата')
+                # self.__google_sheets_api.set_worksheet(f'{profile_id} | Стата')
+                #     4) статистика
+                #     5) статистика по балансу и по объявлениям
+                #     6) пишем в конец листа (проверим что не было такого ранее)
 
-            #     4) статистика
-            #     5) статистика по балансу и по объявлениям
-            #     6) пишем в конец листа (проверим что не было такого ранее)
+                avito_service.answer_on_reviews()
 
             #     7) по списку отзывов автоответ (шаблоны дадут) + добавляем в конец строки статус "отвечено"
 
