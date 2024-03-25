@@ -23,9 +23,10 @@ class AvitoApi:
     CORE_API_HOST = API_HOST + '/core/v1'
     RATINGS_API_HOST = API_HOST + '/ratings/v1'
 
+    __auth_headers: dict|None = None
+
     def __init__(self, auth_request: AuthRequest) -> None:
         self.__auth_headers = self.__get_auth_headers(auth_request.get_request())
-        print(self.__auth_headers)
 
     def get_account(self) -> dict:
         return self.__get(self.CORE_API_HOST + "accounts/self", headers=self.__auth_headers)
@@ -40,10 +41,7 @@ class AvitoApi:
         page = 1
         ads = []
         while True:
-            response = self.__get(
-                self.CORE_API_HOST + f'/items?per_page=100&page={page}&status={status}',
-                headers=self.__auth_headers
-                )
+            response = self.__get(self.CORE_API_HOST + f'/items?per_page=100&page={page}&status={status}')
             items = response['resources']
             if not items:
                 break
@@ -60,10 +58,8 @@ class AvitoApi:
         return self.__get(self.RATINGS_API_HOST + f'/info')
 
     def __get_auth_headers(self, auth_data: dict) -> dict:
-        access_token = self.__get_access_token(auth_data)
-        print(access_token)
         return {
-            'Authorization': f'Bearer {access_token.strip()}',
+            'Authorization': f'Bearer {self.__get_access_token(auth_data).strip()}',
             'User-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                           'Chrome/122.0.0.0 Safari/537.36',
         }
@@ -79,6 +75,9 @@ class AvitoApi:
         return self.__request('POST', url, headers=headers, data=data)
 
     def __request(self, method: str, url: str, data: dict|None = None, headers: dict|None = None) -> dict:
+        if self.__auth_headers is not None:
+            headers = {**headers, **self.__auth_headers}
+            
         response = requests.request(method, url, headers=headers, data=data)
         response_data = response.json()
         if response.status_code != 200 or response_data.get('error') is not None:
