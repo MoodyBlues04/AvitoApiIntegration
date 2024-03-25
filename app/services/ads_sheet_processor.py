@@ -32,18 +32,16 @@ class AvitoSheetProcessor:
                     self.__set_status(row_index + 1, 'BLOCK')
                     continue
 
-                # self.__set_account_info(row_index, avito_service.get_account_info())
+                self.__set_account_info(row_index, avito_service.get_account_info())
 
-                stat_by_region = avito_service.get_ads_stat_by_regions()
-                self.__set_ads_stat(profile_id, stat_by_region)
-                exit(0)
-                #     4) статистика
-                #     5) статистика по балансу и по объявлениям
-                #     6) пишем в конец листа (проверим что не было такого ранее)
+                ads_stat_by_region = avito_service.get_ads_stat_by_regions()
+                self.__set_ads_stat(profile_id, ads_stat_by_region)
 
-                # avito_service.answer_on_reviews()
+                avito_service.answer_on_reviews()
 
-            #     7) по списку отзывов автоответ (шаблоны дадут) + добавляем в конец строки статус "отвечено"
+                # TODO cannot check if its work - no operation 0n test account
+                # operations_history = avito_service.api.get_month_operations_history()['result']['operations']
+                # self.__set_operation_history(profile_id, operations_history)
 
             except Exception as e:
                 self.__log_error(e, row_index)
@@ -64,6 +62,19 @@ class AvitoSheetProcessor:
                 stat['unique_contacts'],
             ]])
             row_index += 1
+
+    def __set_operation_history(self, profile_id: str, operation_history: list) -> None:
+        self.__google_sheets_api.set_worksheet(f'{profile_id} | Стата')
+        row_index = self.__google_sheets_api.get_first_empty_row()
+        for operation in operation_history:
+            self.__google_sheets_api.set_values((row_index, 7), [[
+                operation['updatedAt'],
+                operation['operationType'],
+                operation['amountTotal'],
+                operation['serviceName'],
+                operation['itemId']
+            ]])
+
 
     def __log_error(self, e: Exception, row_index: int) -> None:
         raise e

@@ -206,6 +206,22 @@ class AvitoApi:
     def get_ratings(self) -> dict:
         return self.__get(self.RATINGS_API_HOST + f'/info')
 
+    def get_month_operations_history(self) -> dict:
+        month_ago = (datetime.datetime.today() - datetime.timedelta(days=30))
+        today = datetime.datetime.now()
+        return self.get_operations_history(month_ago, today)
+
+    def get_operations_history(self, date_from: datetime.datetime, date_to: datetime.datetime) -> dict:
+        request = {
+            'dateTimeFrom': date_from.strftime('%Y-%m-%dT%H:%M:%S'),
+            'dateTimeTo': date_to.strftime('%Y-%m-%dT%H:%M:%S')
+        }
+        return self.__post(
+            self.CORE_API_HOST + '/accounts/operations_history/',
+            json=request,
+            headers={'Content-type': 'application/json'}
+        )
+
     def __get_auth_headers(self, auth_data: dict) -> dict:
         return {
             'Authorization': f'Bearer {self.__get_access_token(auth_data).strip()}',
