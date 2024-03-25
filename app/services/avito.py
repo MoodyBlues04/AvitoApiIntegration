@@ -17,6 +17,17 @@ class AuthRequest:
         }
 
 
+class AvitoService:
+    def __init__(self, auth_request: AuthRequest) -> None:
+        self.__api = AvitoApi(auth_request)
+
+    def get_account_info(self) -> dict:
+        return {
+            # 'balance': self.__api.get_account_balance(),
+            'account': self.__api.get_account(),
+        }
+
+
 class AvitoApi:
     API_HOST = 'https://api.avito.ru'
     AUTH_API_HOST = API_HOST + '/token'
@@ -29,7 +40,7 @@ class AvitoApi:
         self.__auth_headers = self.__get_auth_headers(auth_request.get_request())
 
     def get_account(self) -> dict:
-        return self.__get(self.CORE_API_HOST + "accounts/self", headers=self.__auth_headers)
+        return self.__get(self.CORE_API_HOST + "accounts/self")
 
     def get_account_balance(self, user_id: str) -> dict:
         return self.__get(self.CORE_API_HOST + f'/accounts/{user_id}/balance/')

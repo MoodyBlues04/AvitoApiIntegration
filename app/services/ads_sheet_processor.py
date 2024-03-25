@@ -1,10 +1,11 @@
 from .google_sheets import GoogleSheetsApi
-from .avito import AvitoApi, AuthRequest
+from .avito import AuthRequest, AvitoService
 
 
 class AvitoSheetProcessor:
     ROW_LEN = 4
     ERR_COLUMN = 10
+    STATUS_COLUMN = 5
 
     def __init__(self, sheet_id: str, credentials_worksheet: str, ads_worksheet: str) -> None:
         self.__google_sheets_api = GoogleSheetsApi(sheet_id, credentials_worksheet)
@@ -24,8 +25,13 @@ class AvitoSheetProcessor:
                 profile_id, client_id, client_secret = row[1:4]
 
                 auth_request = AuthRequest(client_id.strip(), client_secret.strip())
-                avito_api = AvitoApi(auth_request)
-                print(avito_api.get_ads('active'))
+                try:
+                    avito_service = AvitoService(auth_request)
+                except Exception:
+                    self.__google_sheets_api.set_value((row_idx + 1, self.STATUS_COLUMN), 'BLOCK')
+                    continue
+                print(avito_service.get_account_info())
+                break
 
             #     1) acc data (balance, ads count, ads2 count, reviews count, rating, nearest ad,
             #           profile url and other profile data
