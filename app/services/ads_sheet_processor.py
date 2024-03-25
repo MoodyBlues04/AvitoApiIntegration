@@ -6,6 +6,7 @@ class AvitoSheetProcessor:
     ROW_LEN = 4
     ERR_COLUMN = 10
     STATUS_COLUMN = 5
+    URL_COLUMN = 18
 
     def __init__(self, sheet_id: str, credentials_worksheet: str, ads_worksheet: str) -> None:
         self.__google_sheets_api = GoogleSheetsApi(sheet_id, credentials_worksheet)
@@ -23,18 +24,19 @@ class AvitoSheetProcessor:
                     raise Exception('Incorrect args count')
 
                 profile_id, client_id, client_secret = row[1:4]
+
                 auth_request = AuthRequest(client_id.strip(), client_secret.strip())
                 try:
                     avito_service = AvitoService(auth_request)
                 except Exception:
                     self.__set_status(row_index + 1, 'BLOCK')
                     continue
+
                 self.__set_account_info(row_index, avito_service.get_account_info())
-                break
 
-            #     3) write to sheet
+                self.__google_sheets_api.set_worksheet(f'{profile_id} | Стата')
 
-            #     4) статистика (переключаемся на отдельный лист)
+            #     4) статистика
             #     5) статистика по балансу и по объявлениям
             #     6) пишем в конец листа (проверим что не было такого ранее)
 
@@ -44,7 +46,8 @@ class AvitoSheetProcessor:
                 self.__log_error(e, row_index)
 
     def __set_account_info(self, row_index: int, account_info: AccountInfo) -> None:
-        self.__google_sheets_api.set_values((row_index + 1, self.STATUS_COLUMN), [account_info.to_array()])
+        self.__google_sheets_api.set_values((row_index + 1, self.STATUS_COLUMN), [account_info.get_ads_data()])
+        self.__google_sheets_api.set_values((row_index + 1, self.URL_COLUMN), [account_info.get_account_data()])
 
     def __log_error(self, e: Exception, row_index: int) -> None:
         raise e

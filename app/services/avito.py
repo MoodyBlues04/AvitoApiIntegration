@@ -29,7 +29,7 @@ class AccountInfo:
         self.rating = rating
         self.ad_min_date = ad_min_date
 
-    def to_array(self) -> list:
+    def get_ads_data(self) -> list:
         return [
             self.status,
             self.balance,
@@ -38,6 +38,15 @@ class AccountInfo:
             self.ads[AvitoApi.STATUS_REJECTED],
             self.reviews,
             self.rating,
+        ]
+
+    def get_account_data(self) -> list:
+        return [
+            self.account['profile_url'],
+            self.account['name'],
+            self.account['id'],
+            self.account['email'],
+            self.account['phone'],
         ]
 
 
