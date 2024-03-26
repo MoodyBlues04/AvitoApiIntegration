@@ -49,6 +49,9 @@ class GoogleSheetsApi:
         row_list = self.get_row(row)
         return len(row_list) > 0
 
+    def get_values(self, start: tuple|str, end: tuple|str, return_as: str = 'matrix') -> list[list]:
+        return self.__worksheet.get_values(start=start, end=end, returnas=return_as, include_tailing_empty=False)
+
     def get_all_rows(self, return_as: str = 'matrix') -> list[list]:
         return self.__worksheet.get_all_values(returnas=return_as, include_tailing_empty=False)
 

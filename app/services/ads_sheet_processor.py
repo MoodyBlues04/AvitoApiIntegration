@@ -35,11 +35,11 @@ class AvitoSheetProcessor:
                 self.__set_account_info(row_index, avito_service.get_account_info())
 
                 ads_stat_by_region = avito_service.get_ads_stat_by_regions()
-                self.__set_ads_stat(profile_id, ads_stat_by_region)
+                self.__update_ads_stat(profile_id, ads_stat_by_region)
 
                 avito_service.answer_on_reviews()
 
-                # TODO cannot check if its work - no operation 0n test account
+                # TODO cannot check if it works - no operations on test account
                 # operations_history = avito_service.api.get_month_operations_history()['result']['operations']
                 # self.__set_operation_history(profile_id, operations_history)
 
@@ -50,18 +50,29 @@ class AvitoSheetProcessor:
         self.__google_sheets_api.set_values((row_index + 1, self.STATUS_COLUMN), [account_info.get_ads_data()])
         self.__google_sheets_api.set_values((row_index + 1, self.URL_COLUMN), [account_info.get_account_data()])
 
-    def __set_ads_stat(self, profile_id: str, ads_stat: dict) -> None:
+    def __update_ads_stat(self, profile_id: str, ads_stat: dict) -> None:
         self.__google_sheets_api.set_worksheet(f'{profile_id} | Стата')
         row_index = self.__google_sheets_api.get_first_empty_row()
+
+        current_data = self.__google_sheets_api.get_values((2, 1), (row_index, 5))
         for region, stat in ads_stat.items():
-            self.__google_sheets_api.set_values((row_index, 1), [[
+            updated = False
+            data_to_add = [
                 str(stat['date']),
                 region,
                 stat['active_count'],
                 stat['unique_views'],
-                stat['unique_contacts'],
-            ]])
-            row_index += 1
+                stat['unique_contacts']
+            ]
+            for data_row_index, row in enumerate(current_data):
+                if row[1].strip() == region and row[0].strip() == str(stat['date']):
+                    current_data[data_row_index] = data_to_add
+                    updated = True
+                    break
+            if not updated:
+                current_data.append(data_to_add)
+
+        self.__google_sheets_api.set_values((2, 1), current_data)
 
     def __set_operation_history(self, profile_id: str, operation_history: list) -> None:
         self.__google_sheets_api.set_worksheet(f'{profile_id} | Стата')
