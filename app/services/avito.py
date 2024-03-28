@@ -73,7 +73,7 @@ class AvitoService:
             account,
             ads_count,
             self.__api.get_reviews().get('total'),
-            self.__api.get_ratings()['rating']['score'],
+            self.__api.get_ratings().get('rating', dict()).get('score', 0),
             self.__get_min_ads_date(ads_stat)
         )
 

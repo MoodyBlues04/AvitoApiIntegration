@@ -8,10 +8,9 @@ class AvitoSheetProcessor:
     STATUS_COLUMN = 5
     URL_COLUMN = 19
 
-    def __init__(self, sheet_id: str, credentials_worksheet: str, ads_worksheet: str) -> None:
+    def __init__(self, sheet_id: str, credentials_worksheet: str) -> None:
         self.__google_sheets_api = GoogleSheetsApi(sheet_id, credentials_worksheet)
         self.__credentials_worksheet = credentials_worksheet
-        self.__ads_worksheet = ads_worksheet
 
     def execute(self):
         all_rows = self.__google_sheets_api.get_all_rows()
@@ -21,7 +20,7 @@ class AvitoSheetProcessor:
                 if row_index == 0 or len(row) > 0 and not row[0]:
                     continue
                 if len(row) < self.ROW_LEN:
-                    raise Exception('Incorrect args count')
+                    break
 
                 profile_id, client_id, client_secret = row[1:4]
 
@@ -54,7 +53,11 @@ class AvitoSheetProcessor:
         self.__google_sheets_api.set_worksheet(f'{profile_id} | Стата')
         row_index = self.__google_sheets_api.get_first_empty_row()
 
-        current_data = self.__google_sheets_api.get_values((2, 1), (row_index, 5))
+        try:
+            current_data = self.__google_sheets_api.get_values((2, 1), (row_index, 5))
+        except Exception:
+            current_data = []
+
         for region, stat in ads_stat.items():
             updated = False
             data_to_add = [

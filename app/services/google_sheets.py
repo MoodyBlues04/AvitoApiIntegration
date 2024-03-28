@@ -1,10 +1,10 @@
 import pygsheets
-from os import getenv
+from os import getenv, getcwd
 
 
 class GoogleSheetsApi:
     def __init__(self, sheet_id: str, worksheet_title: str):
-        service_file = getenv('GOOGLE_API_CREDENTIALS_PATH')
+        service_file = getcwd() + '/' + getenv('GOOGLE_API_CREDENTIALS_PATH')
         self.__client = pygsheets.authorize(service_file=service_file)
         self.__sheet = self.__client.open_by_key(sheet_id)
         self.__worksheet = None
