@@ -1,3 +1,5 @@
+import datetime
+
 from .google_sheets import GoogleSheetsApi
 from .avito import AuthRequest, AvitoService, AvitoApi, AccountInfo
 
@@ -12,7 +14,7 @@ class AvitoSheetProcessor:
         self.__google_sheets_api = GoogleSheetsApi(sheet_id, credentials_worksheet)
         self.__credentials_worksheet = credentials_worksheet
 
-    def execute(self):
+    def execute(self, date_from: datetime.date):
         all_rows = self.__google_sheets_api.get_all_rows()
 
         for row_index, row in enumerate(all_rows):
@@ -35,10 +37,10 @@ class AvitoSheetProcessor:
                     continue
                 print('Avito api authorized. Profile active')
 
-                self.__set_account_info(row_index, avito_service.get_account_info())
+                self.__set_account_info(row_index, avito_service.get_account_info(date_from))
                 print('Account data updated')
 
-                ads_stat_by_region = avito_service.get_ads_stat_by_regions()
+                ads_stat_by_region = avito_service.get_ads_stat_by_regions(date_from)
                 self.__update_ads_stat(profile_id, ads_stat_by_region)
                 print('Ads stats updated')
 
