@@ -20,6 +20,9 @@ class AuthRequest:
 
 
 class AccountInfo:
+    STATUS_ACTIVE = 'ACTIVE'
+    STATUS_BLOCK = 'BLOCK'
+
     def __init__(self, status: str, balance: str, account: dict, ads: dict, reviews: int, rating: int, ad_min_date: datetime.date) -> None:
         self.status = status
         self.balance = balance
@@ -68,7 +71,7 @@ class AvitoService:
         ads_count = {ad_status: self.__api.get_ads_count(ad_status) for ad_status in AvitoApi.ADS_STATUSES}
 
         return AccountInfo(
-            'active',
+            AccountInfo.STATUS_ACTIVE,
             balance['real'],
             account,
             ads_count,
@@ -86,7 +89,7 @@ class AvitoService:
         not_answered_reviews = filter(lambda el: not el.get('answer'), self.__api.get_all_reviews())
         return list(map(lambda el: el['id'], not_answered_reviews))
 
-    def get_ads_stat_by_regions(self, date_from: datetime.datetime):
+    def get_ads_stat_by_regions(self, date_from: datetime.date):
         account = self.__api.get_account()
         account_id = account['id']
         ads_ids = self.__api.get_ads_ids(AvitoApi.STATUS_ACTIVE)

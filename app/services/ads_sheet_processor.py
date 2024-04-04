@@ -14,7 +14,7 @@ class AvitoSheetProcessor:
         self.__google_sheets_api = GoogleSheetsApi(sheet_id, credentials_worksheet)
         self.__credentials_worksheet = credentials_worksheet
 
-    def execute(self, date_from: datetime.date):
+    def execute(self):
         all_rows = self.__google_sheets_api.get_all_rows()
 
         for row_index, row in enumerate(all_rows):
@@ -25,17 +25,27 @@ class AvitoSheetProcessor:
                     print('Sheet finished')
                     break
 
-                profile_id, client_id, client_secret = row[1:4]
-                print(f'{row_index+1}. Processing profile: {profile_id} {client_id} {client_secret}')
+                checkbox, profile_id, client_id, client_secret = row[:4]
+                print(f'{row_index}. Processing profile: {checkbox} {profile_id} {client_id} {client_secret}')
+
+                if checkbox == 'FALSE':
+                    print('Checkbox set to FALSE')
+                    continue
 
                 auth_request = AuthRequest(client_id.strip(), client_secret.strip())
                 try:
                     avito_service = AvitoService(auth_request)
                 except Exception:
-                    self.__set_status(row_index + 1, 'BLOCK')
+                    self.__set_status(row_index, AccountInfo.STATUS_BLOCK)
                     print('Profile blocked')
                     continue
                 print('Avito api authorized. Profile active')
+
+                old_data = self.__google_sheets_api.get_values(
+                    (row_index + 1, self.STATUS_COLUMN),
+                    (row_index + 1, self.STATUS_COLUMN + 6))
+                days = 30 if old_data[0] == AccountInfo.STATUS_ACTIVE and all(map(lambda el: len(el) > 0, old_data)) else 269
+                date_from = datetime.date.today() - datetime.timedelta(days=days)
 
                 self.__set_account_info(row_index, avito_service.get_account_info(date_from))
                 print('Account data updated')
@@ -104,4 +114,4 @@ class AvitoSheetProcessor:
         # self.__google_sheets_api.set_value((row_index + 1, self.ERR_COLUMN), str(e))
 
     def __set_status(self, row_index: int, status: str) -> None:
-        self.__google_sheets_api.set_value((row_index + 1, self.STATUS_COLUMN), status)
+        self.__google_sheets_api.set_values((row_index + 1, self.STATUS_COLUMN), [[status]])
