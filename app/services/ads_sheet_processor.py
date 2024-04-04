@@ -1,7 +1,7 @@
 import datetime
 
 from .google_sheets import GoogleSheetsApi
-from .avito import AuthRequest, AvitoService, AvitoApi, AccountInfo
+from .avito import AuthRequest, AvitoService, AccountInfo
 
 
 class AvitoSheetProcessor:
