@@ -114,4 +114,4 @@ class AvitoSheetProcessor:
         # self.__google_sheets_api.set_value((row_index + 1, self.ERR_COLUMN), str(e))
 
     def __set_status(self, row_index: int, status: str) -> None:
-        self.__google_sheets_api.set_values((row_index + 1, self.STATUS_COLUMN), [[status]])
+        self.__google_sheets_api.set_value((row_index + 1, self.STATUS_COLUMN), status)
